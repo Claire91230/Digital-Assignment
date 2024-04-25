@@ -1,0 +1,138 @@
+---
+title: "A Worlwide Snapshot"
+subtitle: "Adolescent women giving birth (10 to 14 years old)"
+author: "Claire Nghiêm"
+date: "2024-04-25"
+format:
+  html:
+    theme: cerulean
+    backgroundcolor: seashell
+    toc: true
+execute: 
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+#library
+library(tidyverse)
+
+# data
+unicef_indicator_1 <- read_csv("unicef_indicator_1.csv")
+unicef_indicator_2 <- read_csv("unicef_indicator_2.csv")
+unicef_metadata <- read_csv("unicef_metadata.csv")
+world_countries_list <- read_csv("WorldCountriesList.csv")
+
+# join the data
+data_join <- world_countries_list %>%
+  full_join(unicef_indicator_1, by = join_by(country))%>%
+  full_join(unicef_indicator_2, by = join_by(country, year)) %>%
+  full_join(unicef_metadata, by = c("country"="country", "year"="time_period"))
+```
+
+
+## Introduction
+
+This report is a worldwide snapshot of the adolescent women giving birth. The adolescent women include women between 10 and 14 years old. **The objective is to show the current situation of adolescent women regarding giving birth depending on the continents, countries and its global evolution over the years.** Additionally, this report reveals that **The adolescent women birth rate is correlated to the life expectancy at birth and to the GDP per capita**.
+
+***This report contains:***
+
+1. World map of the births per 1 000 adolescent women from 2017 to 2021
+
+2. Adolescent women giving birth over the years (2000 to 2021)
+
+3. Adolescent women average birth rate depending on the continent in 2020
+
+4. Adolescent women giving birth & life expectancy at birth with the GDP of the concerned countries in 2017
+
+*All of the figures have to be taken with caution as some data, depending on the years and the countries, have been lacking. Still the source is reliable as it all comes from the UNICEF.*
+
+
+## Adolescent women birth rate situation all over the world per country
+
+The regions of the world where **the number of adolescent women giving birth are at the highest are mostly concentrated in North Africa and South America**.
+
+```{r}
+#| fig-cap: "*As many data were lacking depending on the year. I decided to display the mean of the number of births per 1 000 adolescent women between 2017 and 2021.*"
+
+map_world <- map_data("world")
+
+filtered_data <- unicef_indicator_2 %>%
+  filter(year >= 2017 & year <= 2021)
+
+map_data_join <- left_join(map_world, filtered_data, by = c("region" = "country"))
+
+ggplot(data = map_data_join) +
+  aes(x = long, y = lat, group = group, fill = AdolescentBirthRate) +
+  geom_polygon()+
+  scale_fill_gradient(low = "pink", high = "purple", na.value = "grey") +
+  labs(title = "World map of the births per 1 000 adolescent women from 2017 to 2021" )
+
+```
+
+
+## The global evolution of the adolescent women birth rate since 2000
+
+Since 2000 **the number of births per 1000 adolescent women varied a lot but lowered over the past few years, especially since 2009.** 
+
+```{r}
+#| fig-cap: "*Those data are to be taken with precaution has some data of the countrie were not collected depending of the year and this could have influenced the variations seen on the graph.*"
+
+filtered_data_2000to2021 <- data_join %>%
+  filter(year >= 2000 & year <= 2021)
+
+filtered_data_2000to2021 %>%
+  group_by(year) %>%
+  summarize(m_AverageAdoBirth = mean(AdolescentBirthRate, na.rm = TRUE)) %>%
+  ggplot()+
+  aes(year, m_AverageAdoBirth, fill=year)+
+  geom_line(color = "plum3", size = 1.5)+
+  labs(x = "Year", y = "Average Adolescent Birth Rate", title = "Adolescent women giving birth over the years (2000 to 2021)")
+```
+
+## Comparing the adolescent women birth rate depending on the continent
+
+**In 2020, the two regions with the highest adolescent birth rate (10 to 14 years old) are South America and Africa** with an average adolescent birth rate between 1.1 and 1.2. Comes afterward North America and Asia with an average adolescent birth rate of respectively 0.6 an 0.7. Europe and Australia demonstrates the lowest average both not exceeding 0.1
+
+```{r}
+#| fig-cap: "*Those data are to be taken with precaution has some data of the countrie were not collected depending of the year and this could have influenced the variations seen on the graph.*"
+
+filtered_data_2020 <- data_join %>%
+  filter(year == 2020 & !is.na(continent))
+
+filtered_data_2020 %>%
+  group_by(continent) %>%
+  summarize(m_AverageAdoBirth = mean(AdolescentBirthRate, na.rm = TRUE)) %>%
+  ggplot()+
+  aes(continent, m_AverageAdoBirth, fill=continent)+
+  geom_col()+
+  labs(x = "Continent", y = "Average Adolescent Birth Rate", title = "Adolescent women average birth rate depending on the continent in 2020") +
+  theme_classic() +
+  theme(text = element_text(family = "serif"), axis.text.x = element_blank()) +
+  scale_fill_manual(values = c("powderblue","darkblue","plum","violetred2","salmon1","purple"))
+
+```
+
+## Correlation between adolescent women birth rate, life expectancy and GDP per capita
+
+In this chart, a **correlation can be seen between adolescent women giving birth and life expectancy at birth**. Indeed, there is a tendency for the number of birth per 1000 adolescent women to decrease as the life expectancy at birth increase. It is also clear that african countries shows the biggest number of birth per 1000 adolescent women with Latin America. Additionally, **the countries with the highest GDP tend to have a higher life expectation at birth but also a lower number of birth per 1000 adolescent women**
+
+```{r}
+#| fig-cap: "*Those data are to be taken with precaution has some data of the countrie were not collected depending of the year and this could have influenced the variations seen on the graph.*"
+
+filtered_data_2017 <- data_join %>%
+  filter(year == 2017)
+
+ggplot(filtered_data_2017 %>% filter(!is.na(continent))) +
+  aes(LifeExp, AdolescentBirthRate, size = GDPperCapita, color = continent) +
+  geom_point(alpha = 0.7)+
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_size_continuous(range = c(2, 12)) +
+  labs(x = "Life Expectancy", y = "Adolescent Birth Rate", title = "Adolescent women giving birth & life expectancy at birth with the GDP of the concerned countries in 2017", size = "GDP per Capita", fill = "Continent")
+
+```
+
